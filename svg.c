@@ -187,7 +187,28 @@ char* parse_xml_name() {
 }
 
 //------------------------------------------------------------------------
-bool parse_xml_attr() {
+typedef struct {
+  char *attr;
+  char *value;
+  UT_hash_handle hh;
+} AttrMap;
+
+void attrmap_add(AttrMap **attrmap, char *attr, char *value) {
+  AttrMap *s = malloc(sizeof(AttrMap));
+  s->attr = attr;
+  s->value = value;
+  HASH_ADD_KEYPTR( hh, *attrmap, s->attr, strlen(s->attr), s );
+}
+
+void attrmap_print(AttrMap **attrmap) {
+  AttrMap *s;
+  for(s = *attrmap; s != NULL; s = s->hh.next) {
+    printf("  %s = %s\n", s->attr, s->value);
+  }
+}
+
+//------------------------------------------------------------------------
+bool parse_xml_attr(AttrMap **attrmap) {
   skip_whitespace();
 
   // attribute name
@@ -208,6 +229,8 @@ bool parse_xml_attr() {
 
   skip_whitespace();
 
+  // open_memstream() dynamically allocates space as the pseudo-file is
+  // written.  We must free the buffer when we're done with it.
   char *buf;
   size_t bufsize;
   FILE *out = open_memstream(&buf, &bufsize);
@@ -245,14 +268,18 @@ bool parse_xml_attr() {
   //printf("Parsed attr value: %s\n", buf);
   //printf("Parsed attr: %s = %s\n", k, buf);
   //printf("Parsed attr: %s\n", k);
-  //TODO do something w/ name/value
+
+  attrmap_add(attrmap, k, buf);
 
   return true;
 }
 
 //------------------------------------------------------------------------
 bool parse_xml_attrs() {
-  while(parse_xml_attr());
+  AttrMap *attrmap = NULL;
+
+  while(parse_xml_attr(&attrmap));
+  if(svg_debug) attrmap_print(&attrmap);
   return true;
 }
 
