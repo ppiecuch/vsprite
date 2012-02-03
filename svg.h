@@ -12,6 +12,7 @@
 #include "sprite.h"
 
 bool svg_load(const char *filename, float32 scale, Sprite *sprite);
+void vsprite_init();
 
 #if 0
 //========================================================================

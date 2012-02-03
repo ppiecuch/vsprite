@@ -22,7 +22,8 @@ const int kBezierPoints = 20;   // Number of points in a Bezier curve
 
 // Module-global state (nope, this isn't reentrant/threadsafe...)
 FILE *input;
-bool svg_debug = true;
+bool svg_debug = false;
+bool lex_debug = false;
 float32 width, height;
 
 
@@ -58,52 +59,78 @@ bool match(char *s) {
   return true;
 }
 
+
+//========================================================================
+// Data structures....
+//========================================================================
+
+typedef struct {
+  char *attr;
+  char *value;
+  UT_hash_handle hh;
+} AttrMap;
+
+void attrmap_add(AttrMap **attrmap, char *attr, char *value) {
+  if (!attrmap) return;
+  AttrMap *s = malloc(sizeof(AttrMap));
+  s->attr = attr;
+  s->value = value;
+  HASH_ADD_KEYPTR( hh, *attrmap, s->attr, strlen(s->attr), s );
+}
+
+// Print attr names & values
+void attrmap_print(AttrMap *attrmap) {
+  AttrMap *s;
+  for(s = attrmap; s != NULL; s = s->hh.next) {
+    printf("  %s = %s\n", s->attr, s->value);
+  }
+}
+
+// List attr names only
+void attrmap_list(AttrMap *attrmap) {
+  AttrMap *s;
+  for(s = attrmap; s != NULL; s = s->hh.next) {
+    printf(" %s", s->attr);
+  }
+  printf("\n");
+}
+
+char* attrmap_find(AttrMap *attrmap, char *attr) {
+  AttrMap *s;
+  HASH_FIND_STR(attrmap, attr, s);
+  if (s) return s->value;
+  return NULL;
+}
+
+
 //========================================================================
 // SVG tag parser subroutines
 //========================================================================
 
-//------------------------------------------------------------------------
-// Traverse the XML element tree
-//
-void parse_svg() {
-  /*
-  //const char* name = node.getName();
-  //const char* transform = node.getAttribute("transform");
+void parse_svg(AttrMap *attrs) {
+  // NOTE: This function ONLY handles the top-level <SVG> element.
+  // The old SVGparser::parse_svg() is now parse_xml_element(); see below.
+  printf("Parsed an SVG element (top level)\n");
+}
 
-  Matrix *old_transform = transform_;
-  //transform_ = mul(transform_, new Matrix(transform?std::string(transform):std::string("")));
+void parse_path(AttrMap *attrs) {
+  printf("Parsed a PATH element\n");
+}
 
-  // Parse current node
-  fnmap::iterator iter;
-  iter = vtable.find(name);
-  if(iter != vtable.end()) {
-    // Dispatch to the appropriate tag-handler
-    (this->*(iter->second))(node);
-  } else {
-    //TODO debug log...
-    if(svg_debug) printf("Ignoring '%s' element\n", name);
-  }
+void parse_rect(AttrMap *attrs) {
+  printf("Parsed a RECT element\n");
+}
 
-  // Apply transform
-  if(path) {
-    path->transform = transform_;
-    path->apply_transform();
-    path->id = (char*) node.getAttribute("id");
-    color_style_(node);
-    path_list.push_back(path);
-  }
+void parse_circle(AttrMap *attrs) {
+  printf("Parsed a CIRCLE element\n");
+}
 
-  transform_ = old_transform;
+void parse_radial_gradient(AttrMap *attrs) {
+  printf("Parsed a RadialGradient element\n");
+}
 
-  // Process child nodes
-  int num_children = node.nChildNode();
-  for(int i = 0; i < num_children; i++) {
-    XMLNode child = node.getChildNode(i);
-    parse_svg(child, indent+1);
-  }
-
-  path = NULL;  //TODO this is now 'curpath' in path.c
-  */
+void parse_linear_gradient(AttrMap *attrs) {
+  printf("Parsed a LinearGradient element\n");
 }
 
 //========================================================================
@@ -129,11 +156,20 @@ void fnmap_add(char *name, fnptr fn) {
 
 void init_fnmap() {
   fnmap_add("svg", parse_svg);
-  //fnmap_add("path", parse_path_);
-  //fnmap_add("rect", parse_rect_);
-  //fnmap_add("circle", parse_circle_);
-  //fnmap_add("radialGradient", parse_radial_gradient_);
-  //fnmap_add("linearGradient", parse_linear_gradient_);
+  fnmap_add("path", parse_path);
+  fnmap_add("rect", parse_rect);
+  fnmap_add("circle", parse_circle);
+  fnmap_add("radialGradient", parse_radial_gradient);
+  fnmap_add("linearGradient", parse_linear_gradient);
+}
+
+void process_svg_element(char *name, AttrMap *attrs) {
+  Fnmap *s;
+  HASH_FIND_STR(fnmap, name, s);
+  if (s)
+    (s->fn)(attrs);
+  else
+    printf("Parsed a <%s> element; IGNORING IT\n", name);
 }
 
 //========================================================================
@@ -147,7 +183,7 @@ bool parse_xml_comment() {
     int c = fgetc(input);
     if(c=='-') {
       if(match("->")) {
-        printf("PARSED A COMMENT\n");
+        if(lex_debug) printf("PARSED A COMMENT\n");
         return true;
       }
     }
@@ -187,29 +223,10 @@ char* parse_xml_name() {
 }
 
 //------------------------------------------------------------------------
-typedef struct {
-  char *attr;
-  char *value;
-  UT_hash_handle hh;
-} AttrMap;
-
-void attrmap_add(AttrMap **attrmap, char *attr, char *value) {
-  AttrMap *s = malloc(sizeof(AttrMap));
-  s->attr = attr;
-  s->value = value;
-  HASH_ADD_KEYPTR( hh, *attrmap, s->attr, strlen(s->attr), s );
-}
-
-void attrmap_print(AttrMap **attrmap) {
-  AttrMap *s;
-  for(s = *attrmap; s != NULL; s = s->hh.next) {
-    printf("  %s = %s\n", s->attr, s->value);
-  }
-}
-
-//------------------------------------------------------------------------
 bool parse_xml_attr(AttrMap **attrmap) {
   skip_whitespace();
+
+  // TODO: parse [NAMESPACE ':'] NAME
 
   // attribute name
   char *k = parse_xml_name();
@@ -275,11 +292,9 @@ bool parse_xml_attr(AttrMap **attrmap) {
 }
 
 //------------------------------------------------------------------------
-bool parse_xml_attrs() {
-  AttrMap *attrmap = NULL;
-
-  while(parse_xml_attr(&attrmap));
-  if(svg_debug) attrmap_print(&attrmap);
+bool parse_xml_attrs(AttrMap **attrmap) {
+  while(parse_xml_attr(attrmap));
+  if(svg_debug) attrmap_print(*attrmap);
   return true;
 }
 
@@ -290,7 +305,7 @@ bool parse_xml_pi() {
   //printf("GOT <?\n");
   free(parse_xml_name());
   //printf("GOT name\n");
-  parse_xml_attrs();
+  parse_xml_attrs(NULL);
   //printf("GOT attrs\n");
   if(!match("?>")) return false;
   //printf("GOT ?>\n");
@@ -315,9 +330,17 @@ bool parse_xml_prolog() {
 }
 
 //------------------------------------------------------------------------
-bool parse_xml_element();  // forward ref
+// parse_xml_element() and parse_xml_content() call each other recursively
+// to parse the basic XML grammar:
+//
+// element = '<' name (attr '=' value)* '/>'
+//         | '<' name (attr '=' value)* '>' content '</' name '>'
+//
+// content = element1 element2 ...
 
-bool parse_xml_content() {
+bool parse_xml_element(int indent);  // forward ref
+
+bool parse_xml_content(int indent) {
   for(;;) {
     int c = fgetc(input);
     //printf("--> '%c'\n", c);
@@ -327,31 +350,60 @@ bool parse_xml_content() {
       if(c=='/') {
         return true;
       }
-      parse_xml_element();
+      parse_xml_element(indent+1);
     }
   }
 }
 
-//------------------------------------------------------------------------
-bool parse_xml_element() {
+bool parse_xml_element(int indent) {
   if(fgetc(input) != '<') return false;
+
+  // parse tag name & attributes (as strings)
   char *name = parse_xml_name();
-  printf("BEGIN <%s> TAG\n", name);
+  AttrMap *attrmap = NULL;
+  if(svg_debug) printf("BEGIN <%s> TAG\n", name);
+  parse_xml_attrs(&attrmap);
+  attrmap_list(attrmap);
+  //attrmap_print(attrmap);
 
-  parse_xml_attrs();
+  // TODO revise
+  //char *transform = attrmap_find(attrmap, "transform");
+  //Matrix *old_transform = transform_;
+  //transform_ = mul(transform_, new Matrix(transform?std::string(transform):std::string("")));
 
-  if(match("/>")) {
-    printf("PARSED EMPTY <%s/> TAG\n", name);
-    return true;
+  // perform tag-specific parsing to build up data structures
+  process_svg_element(name, attrmap);
+
+  /*
+  // Apply transform
+  if(path) {
+    path->transform = transform_;
+    path->apply_transform();
+    path->id = (char*) node.getAttribute("id");
+    color_style_(node);
+    path_list.push_back(path);
   }
 
+  transform_ = old_transform;
+  */
+
+
+  // parse end of tag
+  if(match("/>")) {
+    if(lex_debug) printf("PARSED EMPTY <%s/> TAG\n", name);
+    return true;
+  }
   if(!match(">")) {
     printf("EXPECTED '>' TO CLOSE <%s> TAG\n", name);
     return false;
   }
 
-  printf("PARSING CONTENT OF <%s> TAG\n", name);
-  parse_xml_content();
+  // Parse child elements
+  if(lex_debug) printf("PARSING CONTENT OF <%s> TAG\n", name);
+  parse_xml_content(indent);
+
+  // TODO revise
+  //path = NULL;  //TODO this is now 'curpath' in path.c
 
   if(! (match("</") && match(name) && match(">"))) {
     printf("EXPECTED </%s> CLOSING TAG\n", name);
@@ -371,39 +423,45 @@ bool svg_load(const char *filename, float32 scale, Sprite *sprite) {
     printf("===============================================================\n");
   }
 
-  //TODO new XML parser....
-  //XMLNode top = XMLNode::openFileHelper(filename).getChildNode("svg");
   input = fopen(filename, "r");
   if (!input) {
     perror("unable to open input file");
     return false;
   }
-  if (!(parse_xml_prolog())) {
-    printf("XML prologue not parsed\n");
-    return false;
-  }
-  if (!parse_xml_element()) {
-    printf("FAILED to parse XML body (i.e. <svg>...</svg>\n");
-    return false;
-  }
-  printf("FINISHED PARSING SVG\n");
 
-#if 0
+  // Prepare data structures
+/* TODO revise
+  // Uhhhh... can't get width/height before parsing!
+  // move this to parse_svg() ?
+  //
   const char *width_s = top.getAttribute("width");
   const char *height_s = top.getAttribute("height");
 
   double width = atof(width_s);
   double height = atof(height_s);
 
-  // This flips from SVG cord. space to OpenGL/world cord. space
-  transform_ = new Matrix(1, 0, 0, -1, 0, height);
-
   printf("w = %f, h = %f\n", width, height);
 
-  // Parse SVG paths into a temporary list
-  path_list.clear();
-  parse_svg(top, 0);
+  // This flips from SVG cord. space to OpenGL/world coord. space
+  transform_ = new Matrix(1, 0, 0, -1, 0, height);
 
+  path_list.clear();
+  */
+
+  // Parse the SVG/XML
+  if (!(parse_xml_prolog())) {
+    printf("XML prologue not parsed\n");
+    return false;
+  }
+  if (!parse_xml_element(0)) {
+    printf("FAILED to parse XML body (i.e. <svg>...</svg>\n");
+    return false;
+  }
+  printf("FINISHED PARSING SVG\n");
+
+
+  // Finalize data structures
+/* TODO revise
   skin->path_list = path_list;
 
   // Render to a GL display list
@@ -423,8 +481,12 @@ bool svg_load(const char *filename, float32 scale, Sprite *sprite) {
     glEndList();
   }
   skin->displist = displist;
-#endif
+*/
 
   return true;
+}
+//========================================================================
+void vsprite_init() {
+  init_fnmap();
 }
 //========================================================================
