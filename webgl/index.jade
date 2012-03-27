@@ -1,0 +1,27 @@
+!!! 5
+- var title = "WebGL Stencil Buffer Test"
+html
+  head
+    title= title
+    :stylus
+      h1 { font-size: 120%; }
+      h2 { font-size: 110%; }
+      #sidebar
+        float left
+        width 240px
+        margin-left 10px
+      #glcanvas
+        float left
+        width 640px
+      .clear
+        clear both
+      //video { display: none; }
+    script(src='lib/require.js', data-main='main.js')
+
+  body
+    h1= title
+    canvas#glcanvas(width=640, height=480)
+      | Your browser doesn't appear to support WebGL
+    #sidebar
+      #status
+    .clear
