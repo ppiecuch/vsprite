@@ -28,8 +28,8 @@
 var gl, video;
 
 
-define(['lib/domReady.js', 'lib/sylvester.src.js', 'lib/glUtils.js', 'lib/text!fs.glsl', 'lib/text!vs.glsl'],
-    function(domReady, sylvester, glu, fs_src, vs_src) {
+define(['lib/domReady.js', 'lib/glUtils.js', 'lib/text!fs.glsl', 'lib/text!vs.glsl'],
+    function(domReady, glu, fs_src, vs_src) {
   "use strict";
 
 // MODULE GLOBALS
@@ -354,12 +354,12 @@ function drawScene() {
   loadIdentity();
   mvTranslate([-5, 0, -20]);
   setMatrixUniforms();
-
   draw();
 
-  //TODO: rotate and draw another copy to see how antialiasing looks
-  //glRotatef(133.33, 0,0,1);   // TODO webgl equiv
-  //draw();
+  // rotate and draw another copy to see how antialiasing looks
+  mvRotate(133.33, [0,0,1]);
+  setMatrixUniforms();
+  draw();
 }
 
 }); //==================== END MODULE ===========================

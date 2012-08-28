@@ -1,5 +1,5 @@
 !!! 5
-- var title = "WebGL Stencil Buffer Test"
+- var title = "SVG sprite loading/parsing test"
 html
   head
     title= title
@@ -16,8 +16,11 @@ html
       .clear
         clear both
       //video { display: none; }
-    script(src='lib/sylvester.src.js')
-    script(src='lib/require.js', data-main='main.js')
+    script(src='lib/jquery-1.8.0.min.js')
+    script(src='lib/gl-matrix.js')
+    script(src='vec2.js')
+    script(src='path.js')
+    script(src='vsprite.js')
 
   body
     h1= title
