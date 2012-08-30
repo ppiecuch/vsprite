@@ -3,29 +3,39 @@
 html
   head
     title= title
+
     :stylus
       h1 { font-size: 120%; }
       h2 { font-size: 110%; }
-      #sidebar
-        float left
-        width 240px
-        margin-left 10px
       #glcanvas
-        float left
-        width 640px
-      .clear
-        clear both
-      //video { display: none; }
+        width 100%
+
     script(src='lib/jquery-1.8.0.min.js')
     script(src='lib/gl-matrix.js')
+    //script(src='lib/sylvester.js')
+    //script(src='lib/glUtils.js')
+    script(src='lib/async.js')
+    script(src='utils.js')
     script(src='vec2.js')
     script(src='path.js')
     script(src='vsprite.js')
+    script(src='t1.js')
+
+    script(id='fs', type="x-shader/x-fragment").
+      void main(void) {
+        gl_FragColor = vec4(0,255,255, 255);
+      }
+
+    script(id='vs', type="x-shader/x-vertex").
+      attribute vec3 aVertexPosition;
+      uniform mat4 uMVmatrix, uPmatrix;
+      void main(void) {
+        //gl_Position = uPmatrix * uMVmatrix * vec4(aVertexPosition, 1.0);
+        gl_Position = uMVmatrix * vec4(aVertexPosition, 1.0);
+      }
 
   body
     h1= title
     canvas#glcanvas(width=640, height=480)
       | Your browser doesn't appear to support WebGL
-    #sidebar
-      #status
-    .clear
+    #status

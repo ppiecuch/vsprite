@@ -192,6 +192,7 @@ var LIGHT = 1;
 var DEPTH = 1;
 var CULL = 0;
 var TEXTURE = 1;
+//TODO uhh, these variables are undefined within draw()... WTF?
 
 // disable fancy stuff for now...  TODO later
 ANTIALIAS = 0;
@@ -296,9 +297,12 @@ function main() {
   //console.info("Stencil bits: %d\n", glfwGetWindowParam(GLFW_STENCIL_BITS));
 
   gl.clearColor(0,0,0, 1);
-  gl.enable(gl.DEPTH_TEST);
-  gl.depthFunc(gl.LEQUAL);
-  gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+  gl.disable(gl.DITHER);
+  gl.enable(gl.SCISSOR_TEST);
+  gl.enable(gl.BLEND); gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
+  //gl.enable(gl.DEPTH_TEST);
+  //gl.depthFunc(gl.LEQUAL);
+  //gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
 
   //================================================================
   // GL settings

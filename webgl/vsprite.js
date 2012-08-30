@@ -1,4 +1,15 @@
-function parsePath(e) {
+var Sprite = function(name, svg){
+  this.name = name;
+  this.paths = [];
+  //TODO other stuff..
+  this.parseSVG(svg);
+};
+Sprite.prototype = Object.create(Object.prototype);
+Sprite.prototype.toString = function(){ return "Sprite<"+ this.name +">"; };
+
+
+
+var parsePath = function(e) {
   console.log('Path');
   //console.dir(e);
   console.log(e.style.cssText);
@@ -6,14 +17,17 @@ function parsePath(e) {
 
   var p = new Path();
   p.parse(e.attributes.d);
+  p.initBuffers();
+  //TODO path styles
   console.log(p);
+  this.paths.push(p);
 }
 
-function parseCircle(e) {
+var parseCircle = function(e) {
   console.log('Circle');
 }
 
-function parseRect(e) {
+var parseRect = function(e) {
   console.log('Rect');
 }
 
@@ -25,22 +39,14 @@ var vtable = {
   rect: parseRect
 };
 
-function parseSVG(e) {
+Sprite.prototype.parseSVG = function(e) {
   var fn = vtable[e.tagName];
-  if(fn) fn(e);
-  $.each(e.children, function(i,e){parseSVG(e);});
+  if(fn) fn.call(this, e);
+  for(var i in e.childNodes) {
+    this.parseSVG(e.childNodes[i]);
+  }
 }
 
-
-
-// when DOMready
-$(function(){
-  // AJAX-load SVG file into a temporary DOM element, which parses it.
-  // Then extract the vector data & styles.
-  $('<div></div>')
-  .load('test/kzerza.svg', function(res, status, xhr){
-    var self=this;
-    console.log(self);
-    parseSVG(this);
-  });
-});
+Sprite.prototype.render = function() {
+  this.paths[0].render(); //TODO
+}

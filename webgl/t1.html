@@ -4,17 +4,19 @@
 h2 {
   font-size: 110%;
 }
-#sidebar {
-  float: left;
-  width: 240px;
-  margin-left: 10px;
-}
 #glcanvas {
-  float: left;
-  width: 640px;
+  width: 100%;
 }
-.clear {
-  clear: both;
+</style><script src="lib/jquery-1.8.0.min.js"></script><script src="lib/gl-matrix.js"></script><!--script(src='lib/sylvester.js')--><!--script(src='lib/glUtils.js')--><script src="lib/async.js"></script><script src="utils.js"></script><script src="vec2.js"></script><script src="path.js"></script><script src="vsprite.js"></script><script src="t1.js"></script><script id="fs" type="x-shader/x-fragment">void main(void) {
+  gl_FragColor = vec4(0,255,255, 255);
 }
-</style><script src="lib/jquery-1.8.0.min.js"></script><script src="lib/gl-matrix.js"></script><script src="vec2.js"></script><script src="path.js"></script><script src="vsprite.js"></script></head><body><h1>SVG sprite loading/parsing test</h1><canvas id="glcanvas" width="640" height="480">Your browser doesn't appear to support WebGL
-</canvas><div id="sidebar"><div id="status"></div></div><div class="clear"></div></body></html>
+
+</script><script id="vs" type="x-shader/x-vertex">attribute vec3 aVertexPosition;
+uniform mat4 uMVmatrix, uPmatrix;
+void main(void) {
+  //gl_Position = uPmatrix * uMVmatrix * vec4(aVertexPosition, 1.0);
+  gl_Position = uMVmatrix * vec4(aVertexPosition, 1.0);
+}
+
+</script></head><body><h1>SVG sprite loading/parsing test</h1><canvas id="glcanvas" width="640" height="480">Your browser doesn't appear to support WebGL
+</canvas><div id="status"></div></body></html>

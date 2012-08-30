@@ -262,3 +262,114 @@ Path.prototype.cubicBezier = function(t, a, b, c, d) {
   var bccd = vec2.lerp(bc,cd,t);  // point between bc and cd (blue)
   return vec2.lerp(abbc,bccd,t);  // point on the bezier-curve (black)
 }
+
+
+
+//TODO use the path's actual vertexes & color(s)
+Path.prototype.initBuffers = function() {
+  this.Vertexes = gl.createBuffer();
+  gl.bindBuffer(gl.ARRAY_BUFFER, this.Vertexes);
+  var vertexes = [
+    0, 0,
+    2, 0,
+    3, 1,
+    9, 1,
+    10, 0,
+    12, 0,
+    12, 1,
+    9, 4,
+    3, 4,
+    0, 1,
+    0, 0
+  ];
+  gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(vertexes), gl.STATIC_DRAW);
+
+  // quad to backfill stencil..  = bounding box of above vertexes
+  this.quadVertexes = gl.createBuffer();
+  gl.bindBuffer(gl.ARRAY_BUFFER, this.quadVertexes);
+  var quadvertexes = [
+    0, 0,
+    12, 0,
+    12, 4,
+    0, 4
+  ];
+  gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(quadvertexes), gl.STATIC_DRAW);
+}
+
+
+
+Path.prototype.render = function() {
+  console.log('Path.render');
+
+  var ANTIALIAS = 0;  //TESTING
+
+  //
+  // TODO test/debug the DEPTH_TEST stuff... disabling it for the stencil & outline *seems* to work but I haven't really studied how it interacts with STENCIL_TEST... see Red Book ch.10
+  //
+  // Fancy stencil buffer method
+  // Draws filled concave polygons without tesselation
+  //
+  // References:
+  //    "Drawing Filled, Concave Polygons Using the Stencil Buffer"
+  //    OpenGL Red Book, Chapter 14
+  //    http://glprogramming.com/red/chapter14.html#name13
+  //
+  //    "Hardware accelerated polygon rendering", Zack Rusin, 2006.
+  //    http://zrusin.blogspot.com/2006/07/hardware-accelerated-polygon-rendering.html
+  //
+
+  gl.enable (gl.STENCIL_TEST);
+
+    var fill = [0,255,255, 255];
+
+    // Compute a bounding box (for drawing a filled quad behind the stencil)
+    var x1,y1,x2,y2;
+    x1=y1=0;
+    x2=12;
+    y2=4;
+
+gl.disable(gl.DEPTH_TEST);
+
+    // Draw to stencil, using the even-odd rule for concave polygons
+    gl.disable (gl.BLEND);
+    gl.stencilMask (0x01);
+    gl.stencilOp (gl.KEEP, gl.KEEP, gl.INVERT);  // INVERT = even-odd rule
+    gl.stencilFunc (gl.ALWAYS, 0, ~0);
+    gl.colorMask (false, false, false, false);
+
+    gl.bindBuffer(gl.ARRAY_BUFFER, this.Vertexes);
+    gl.vertexAttribPointer(attr.vertexPosition, 2, gl.FLOAT, false, 0, 0);
+    gl.drawArrays(gl.TRIANGLE_FAN, 0, 11);
+
+    gl.colorMask (true, true, true, true);
+
+//XXX looks like this trick may not work in WebGL / OpenGL ES
+if(ANTIALIAS) {
+    // Antialiasing: Draw aliased off-pixels to real
+    gl.enable (gl.BLEND);
+    gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
+
+    gl.stencilFunc (gl.EQUAL, 0x00, 0x01);
+    gl.stencilOp (gl.KEEP, gl.KEEP, gl.KEEP);
+
+    //TODO gl.enable(gl.LINE_SMOOTH);  //TODO webgl equiv?
+    //gl.color4ub(fill[0], fill[1], fill[2], fill[3]*0.5);  // 50% alpha
+    //gl.color4ubv(fill);  // Actually, 100% alpha works better than 50%
+    gl.drawArrays(gl.LINE_LOOP, 0, 11);
+    //TODO gl.disable (gl.LINE_SMOOTH);
+}
+
+//gl.enable(gl.DEPTH_TEST);
+
+    // Draw a filled quad behind the stencil
+    gl.stencilFunc (gl.EQUAL, 0x01, 0x01);
+    gl.stencilOp (gl.ZERO, gl.ZERO, gl.ZERO);
+
+    gl.bindBuffer(gl.ARRAY_BUFFER, this.quadVertexes);
+    gl.vertexAttribPointer(attr.vertexPosition, 2, gl.FLOAT, false, 0, 0);
+    gl.drawArrays(gl.TRIANGLE_FAN, 0, 4);
+
+gl.enable(gl.DEPTH_TEST);
+
+  gl.disable (gl.STENCIL_TEST);
+}
