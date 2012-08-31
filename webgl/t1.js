@@ -10,7 +10,7 @@
       ob = {},
       attr = {};
   var MVmatrix = null;
-  var scale = [0.1, 0.1, 1];
+  var scale = [0.001, 0.001, 1];
   var skins = {};
 
   window.ob = ob;
@@ -53,7 +53,7 @@
     MVmatrix = mat4.create();
     mat4.identity(MVmatrix);
     mat4.rotateZ( MVmatrix, 15*(Math.PI/180));
-    mat4.translate( MVmatrix, [-0.6,0,0] );
+    mat4.translate( MVmatrix, [-0.6, -0.3, 0] );
     mat4.scale( MVmatrix, scale );
     console.log(mat4.str(MVmatrix));
 
@@ -117,17 +117,20 @@
     attr.vertexPosition = gl.getAttribLocation(ShaderProgram, 'aVertexPosition');
     gl.enableVertexAttribArray(attr.vertexPosition);
 
+    attr.vertexColor = gl.getAttribLocation(ShaderProgram, 'aVertexColor');
+    gl.enableVertexAttribArray(attr.vertexColor);
+
     //attr.textureCoord = gl.getAttribLocation(ShaderProgram, 'aTextureCoord');
     //gl.enableVertexAttribArray(attr.textureCoord);
   }
 
   function loadSVG(callback) {
-    // AJAX-load SVG file into a temporary DOM element, which parses it.
-    // Then extract the vector data & styles.
-    $('<div></div>')
+    // AJAX-load SVG file into a temporary element. Browser parses the XML.
+    // Then we extract the vector data & styles.
+    $('<div/>')
     .load('test/kzerza.svg', function(res, status, xhr){
       skins.kzerza = new Sprite('kzerza', this);
-      console.log(skins.kzerza);
+      //console.log(skins.kzerza);
       callback();
     });
   }

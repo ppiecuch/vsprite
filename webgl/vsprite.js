@@ -19,7 +19,7 @@ var parsePath = function(e) {
   p.parse(e.attributes.d);
   p.initBuffers();
   //TODO path styles
-  console.log(p);
+  //console.log(p);
   this.paths.push(p);
 }
 
@@ -48,5 +48,7 @@ Sprite.prototype.parseSVG = function(e) {
 }
 
 Sprite.prototype.render = function() {
-  this.paths[0].render(); //TODO
+  //console.log(this);
+  for(var i=0; i<this.paths.length; i++)
+    this.paths[i].render();
 }

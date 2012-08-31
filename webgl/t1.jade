@@ -22,16 +22,21 @@ html
     script(src='t1.js')
 
     script(id='fs', type="x-shader/x-fragment").
+      varying lowp vec4 vColor;
       void main(void) {
-        gl_FragColor = vec4(0,255,255, 255);
+        gl_FragColor = vColor;
+        //gl_FragColor = vec4(0,255,255, 255);
       }
 
     script(id='vs', type="x-shader/x-vertex").
       attribute vec3 aVertexPosition;
-      uniform mat4 uMVmatrix, uPmatrix;
+      attribute vec4 aVertexColor;
+      uniform mat4 uMVmatrix; //, uPmatrix;
+      varying lowp vec4 vColor;
       void main(void) {
         //gl_Position = uPmatrix * uMVmatrix * vec4(aVertexPosition, 1.0);
         gl_Position = uMVmatrix * vec4(aVertexPosition, 1.0);
+        vColor = aVertexColor;
       }
 
   body

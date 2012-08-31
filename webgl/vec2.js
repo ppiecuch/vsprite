@@ -3,6 +3,7 @@
 var vec2 = {};
 
 // A <- A+B
+// TODO DEBUG - why doesn't this work in Path.parse?
 vec2.add = function (a, b) {
   a[0] += b[0];
   a[1] += b[1];
