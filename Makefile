@@ -2,7 +2,12 @@ SHELL=bash
 CC=gcc
 CPPFLAGS=
 CFLAGS= -Wall -g
-LIBS= -lGL
+UNAME_S := $(shell uname -s)
+ifeq ($(UNAME_S),Darwin)
+	LIBS = -framework OpenGL
+else
+	LIBS= -lGL
+endif
 
 MODULES= svg path sprite gradient matrix
 BINDIR= bin
