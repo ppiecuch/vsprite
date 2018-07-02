@@ -375,8 +375,28 @@ char* parse_xml_name() {
   }
 }
 
+// Parse over (skip) extraneous data
+bool skip_attrs() {
+  skip_whitespace();
+  if(parse_xml_name() == NULL) {
+    return false;
+  }
+  skip_whitespace();
+  // '='
+  int c = fgetc(input);
+  skip_whitespace();
+  // '"'
+  c = fgetc(input);
+  for(;;) {
+    c = fgetc(input);
+    if (c == '"') break;
+  }
+  return true;
+}
+
 //------------------------------------------------------------------------
-bool parse_xml_attr(AttrMap **attrmap) {
+// Parse and return xml attribute name and value
+bool parse_xml_attr(char **name, char **value) {
   skip_whitespace();
 
   // TODO: parse [NAMESPACE ':'] NAME
@@ -384,7 +404,6 @@ bool parse_xml_attr(AttrMap **attrmap) {
   // attribute name
   char *k = parse_xml_name();
   if(k == NULL) {
-    //printf("END ATTRS\n");
     return false;
   }
 
@@ -434,20 +453,52 @@ bool parse_xml_attr(AttrMap **attrmap) {
       return false;
   }
   fclose(out);
-
-  //printf("Parsed attr value: %s\n", buf);
-  //printf("Parsed attr: %s = %s\n", k, buf);
-  //printf("Parsed attr: %s\n", k);
-
-  attrmap_add(attrmap, k, buf);
-
+  
+  *name = k;
+  *value = buf;
+  
   return true;
 }
 
+bool parse_svg_path(Sprite *sprite, Path *path) {
+  
+  char *name, *value;
+  while(parse_xml_attr(&name, &value));
+  
+}
+
 //------------------------------------------------------------------------
-bool parse_xml_attrs(AttrMap **attrmap) {
-  while(parse_xml_attr(attrmap));
-  if(svg_debug) attrmap_print(*attrmap);
+bool parse_xml_attrs(Sprite *sprite, const char *element) {
+  
+  char *name, *value;
+  
+  // Extract height and width data from svg
+  if(!strcmp(element, "svg")) {
+    while(parse_xml_attr(&name, &value)) {
+      if(!strcmp(name, "width")) {
+        sprite->width = atof(value);
+      } else if (!strcmp(name, "height")) {
+        sprite->height = atof(value);
+      }
+    }
+  } else if(!strcmp(element, "g")) {
+    // Extract skeleton from group
+    // Maybe there's a smarter way to do the skeleton rather than manual
+    while(parse_xml_attr(&name, &value)) {
+      if(!strcmp(name, "id")) {
+        if(!strcmp(value, "skeleton")) {
+          printf("**** found the skeleton! ****\n");
+        }
+      }
+    }
+  } else if(!strcmp(element, "path")) {
+      Path *path = path_new();
+      parse_svg_path(sprite, path);
+  } else {
+    // Parse and skip everything else
+    while(skip_attrs());
+  }
+  
   return true;
 }
 
@@ -458,7 +509,7 @@ bool parse_xml_pi() {
   //printf("GOT <?\n");
   free(parse_xml_name());
   //printf("GOT name\n");
-  parse_xml_attrs(NULL);
+  while(skip_attrs());
   //printf("GOT attrs\n");
   if(!match("?>")) return false;
   //printf("GOT ?>\n");
@@ -496,7 +547,6 @@ bool parse_xml_element(int indent);  // forward ref
 bool parse_xml_content(int indent) {
   for(;;) {
     int c = fgetc(input);
-    //printf("--> '%c'\n", c);
     if(c=='<') {
       int c = fgetc(input);
       fseek(input, -2, SEEK_CUR);
@@ -508,58 +558,29 @@ bool parse_xml_content(int indent) {
   }
 }
 
-bool parse_xml_element(int indent) {
+//------------------------------------------------------------------------
+bool parse_xml_element(Sprite *sprite) {
   if(fgetc(input) != '<') return false;
+  char *element = parse_xml_name();
+  printf("BEGIN <%s> TAG\n", element);
 
-  // parse tag name & attributes (as strings)
-  char *name = parse_xml_name();
-  AttrMap *attrmap = NULL;
-  if(svg_debug) printf("BEGIN <%s> TAG\n", name);
-  parse_xml_attrs(&attrmap);
-  attrmap_list(attrmap);
-  //attrmap_print(attrmap);
-
-  // TODO revise
-  //char *transform = attrmap_find(attrmap, "transform");
-  //Matrix *old_transform = transform_;
-  //transform_ = mul(transform_, new Matrix(transform?std::string(transform):std::string("")));
-
-  // perform tag-specific parsing to build up data structures
-  process_svg_element(name, attrmap);
-
-  /*
-  // Apply transform
-  if(path) {
-    path->transform = transform_;
-    path->apply_transform();
-    path->id = (char*) node.getAttribute("id");
-    color_style_(node);
-    path_list.push_back(path);
-  }
-
-  transform_ = old_transform;
-  */
-
+  parse_xml_attrs(sprite, element);
 
   // parse end of tag
   if(match("/>")) {
-    if(lex_debug) printf("PARSED EMPTY <%s/> TAG\n", name);
+    printf("PARSED EMPTY <%s/> TAG\n", element);
     return true;
   }
   if(!match(">")) {
-    printf("EXPECTED '>' TO CLOSE <%s> TAG\n", name);
+    printf("EXPECTED '>' TO CLOSE <%s> TAG\n", element);
     return false;
   }
 
-  // Parse child elements
-  if(lex_debug) printf("PARSING CONTENT OF <%s> TAG\n", name);
-  parse_xml_content(indent);
+  printf("PARSING CONTENT OF <%s> TAG\n", element);
+  parse_xml_content();
 
-  // TODO revise
-  //path = NULL;  //TODO this is now 'curpath' in path.c
-
-  if(! (match("</") && match(name) && match(">"))) {
-    printf("EXPECTED </%s> CLOSING TAG\n", name);
+  if(! (match("</") && match(element) && match(">"))) {
+    printf("EXPECTED </%s> CLOSING TAG\n", element);
     return false;
   }
   return true;
@@ -581,6 +602,15 @@ bool svg_load(const char *filename, float32 scale, Sprite *sprite) {
     perror("unable to open input file");
     return false;
   }
+  if (!(parse_xml_prolog())) {
+    printf("XML prologue not parsed\n");
+    return false;
+  }
+  if (!parse_xml_element(sprite)) {
+    printf("FAILED to parse XML body (i.e. <svg>...</svg>\n");
+    return false;
+  }
+  printf("FINISHED PARSING SVG\n");
 
   // Prepare data structures
 /* TODO revise
